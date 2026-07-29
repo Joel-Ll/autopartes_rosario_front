@@ -14,35 +14,35 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import UploadImage from '@/components/UploadImage';
-import { productFormSchema, type ProductFormValues } from '@/types/products/products.type';
-import type { SupplierActive } from '@/types/suppliers/suppliers.type';
-import type { CategoryActive } from '@/types/categories/categories.types';
-
+import { productFormSchema, unitType, type ProductFormValues } from '@/types/products/products.type';
+import type { SupplierSelect } from '@/types/suppliers/suppliers.type';
 import { createProductAction } from '@/actions/products/create-product.action';
-import { useUnidadMedidaSiat } from '@/hooks/useSiat';
-import type { UnidadMedida } from '@/types/siat/siat';
 
 export default function CreateProductView() {
   const navigate = useNavigate();
   const [publicId, setPublicId] = useState<string | undefined>('');
   const [imagePreview, setImagePreview] = useState<string | undefined>(undefined);
-  const { data: categoriesActive } = useSelectCategory();
-  const { data: suppliersActive } = useSelectSupplier();
-  const { data: dataUnidadMedida } = useUnidadMedidaSiat();
+  const { data: categoriesSelect } = useSelectCategory();
+  const { data: suppliersSelect } = useSelectSupplier();
+  const suppliersActive = suppliersSelect?.filter(supp => supp.isActive) || [];
+
+  const activeCategories = categoriesSelect?.filter(cat => cat.isActive) || [];
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      code: '',
+      catalogCode: '',
+      location: '',
       description: '',
       image: '',
       category: '',
       supplier: '',
       brand: '',
-      unidadMedidaCodigo: '',
+      unidadMedida: '',
       minStock: undefined,
       purchasePrice: undefined,
-      salePrice: undefined
+      salePrice: undefined,
+      discountReference: undefined
     },
   });
 
@@ -53,8 +53,8 @@ export default function CreateProductView() {
       toast.error(error.message);
     },
     onSuccess: (data) => {
-      // TODO: Redireccionar a productos e invaldiar Query Products;
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success(data);
       handleClose();
     }
@@ -74,7 +74,7 @@ export default function CreateProductView() {
       <Card className="w-full max-w-6xl mx-auto">
         <CardHeader>
           <CardTitle className="text-xl md:text-2xl lg:text-3xl">
-            Registrar nuevo producto
+            Registrar Producto
           </CardTitle>
         </CardHeader>
 
@@ -91,15 +91,15 @@ export default function CreateProductView() {
               />
 
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Código */}
+                {/* Código de catálogo */}
                 <FormField
                   control={form.control}
-                  name="code"
+                  name="catalogCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Código del Producto</FormLabel>
+                      <FormLabel>Código de Catálogo (opcional)</FormLabel>
                       <FormControl >
-                        <Input placeholder="SKU-001" {...field} />
+                        <Input placeholder="LD-7153" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -140,20 +140,16 @@ export default function CreateProductView() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categoriesActive && categoriesActive.length > 0 ? (
-                            <>
-                              {categoriesActive.map((item: CategoryActive) => (
-                                <SelectItem key={item._id} value={item._id} className='uppercase'>
-                                  {item.name}
-                                </SelectItem>
-                              ))}
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem disabled value="no-data">
-                                No hay registros
+                          {activeCategories.length > 0 ? (
+                            activeCategories.map((item) => (
+                              <SelectItem key={item._id} value={item._id} className='uppercase'>
+                                {item.name}
                               </SelectItem>
-                            </>
+                            ))
+                          ) : (
+                            <SelectItem disabled value="no-data">
+                              No hay categorías activas
+                            </SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -183,7 +179,7 @@ export default function CreateProductView() {
                         <SelectContent>
                           {suppliersActive && suppliersActive.length > 0 ? (
                             <>
-                              {suppliersActive.map((item: SupplierActive) => (
+                              {suppliersActive.map((item: SupplierSelect) => (
                                 <SelectItem key={item._id} value={item._id} >
                                   {item.enterprise}
                                 </SelectItem>
@@ -202,11 +198,11 @@ export default function CreateProductView() {
                     </FormItem>
                   )}
                 />
-                
+
                 {/* Unidad de Medida */}
                 <FormField
                   control={form.control}
-                  name="unidadMedidaCodigo"
+                  name="unidadMedida"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unidad Medida</FormLabel>
@@ -222,20 +218,14 @@ export default function CreateProductView() {
                             <SelectValue placeholder="Selecciona una medida" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {dataUnidadMedida && dataUnidadMedida.length > 0 ? (
+                        <SelectContent position="item-aligned">
+                          {unitType && (
                             <>
-                              {dataUnidadMedida.map((item: UnidadMedida) => (
-                                <SelectItem key={item._id} value={item.codigoClasificador.toString()}>
-                                  {item.descripcion}
+                              {unitType.map((item) => (
+                                <SelectItem key={item.id} value={item.value} >
+                                  {item.label}
                                 </SelectItem>
                               ))}
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem disabled value="no-data">
-                                No hay registros
-                              </SelectItem>
                             </>
                           )}
                         </SelectContent>
@@ -305,6 +295,43 @@ export default function CreateProductView() {
                             field.onChange(e.target.value === "" ? undefined : Number(e.target.value))
                           }
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Referencia de descuento */}
+                <FormField
+                  control={form.control}
+                  name="discountReference"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Referencia de descuento (Bs.)</FormLabel>
+                      <FormControl >
+                        <Input 
+                          type="number"
+                          placeholder="0"
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === "" ? undefined : Number(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Ubicacion de producto */}
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ubicación (opcional)</FormLabel>
+                      <FormControl >
+                        <Input placeholder="A-01" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

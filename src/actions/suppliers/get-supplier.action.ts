@@ -6,7 +6,7 @@ export const getSupplierAction = async (supplierId: Supplier['_id']) => {
   try {
     const url = `/suppliers/${supplierId}`;
     const { data } = await api.get(url);
-    const response = supplierSchema.safeParse(data)
+    const response = supplierSchema.safeParse(data);
     if (response.success)
       return response.data
   } catch (error) {

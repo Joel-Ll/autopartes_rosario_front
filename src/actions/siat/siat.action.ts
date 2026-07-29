@@ -31,7 +31,6 @@ export const sincronizarCatalogos = async (method: string) => {
   try {
     const url = `/siat-sync/${method}`;
     const { data } = await api.post(url);
-    console.log(data);
     return data;
   } catch (error) {
     if (isAxiosError(error) && error.response)

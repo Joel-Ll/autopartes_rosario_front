@@ -1,24 +1,15 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { categoryFormSchema, type CategoryFormValues } from '@/types/categories/categories.types';
 import { createCategoryAction } from '@/actions/categories/create-category.action';
-import { useProductsServicesSiat } from '@/hooks/useSiat';
-import { ProductServiceSelector } from '../ui/product-service-selector';
 import {
   Dialog,
   DialogContent,
@@ -28,19 +19,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AddCategory() {
   const [open, setOpen] = useState(false);
-  const { data: dataProductsService } = useProductsServicesSiat();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
       name: '',
-      codigoSin: ''
+      description: ''
     }
   });
-
 
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
@@ -50,7 +40,7 @@ export default function AddCategory() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
-      queryClient.invalidateQueries({ queryKey: ['categories-active'] })
+      queryClient.invalidateQueries({ queryKey: ['categories-select'] })
       toast.success(data);
     }
   });
@@ -75,8 +65,9 @@ export default function AddCategory() {
         }
       }}
     >
+      
       <DialogTrigger asChild>
-        <Button size={'lg'} className='gap-2' onClick={() => setOpen(true)}>
+        <Button className='gap-2 w-full md:w-fit' onClick={() => setOpen(true)}>
           <Plus className="h-5 w-5" />
           Nueva Categoría
         </Button>
@@ -90,58 +81,56 @@ export default function AddCategory() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid flex-1 auto-rows-min gap-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name='name'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder='Ej. Electrónicos'
-                        className='text-sm'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 md:space-y-4">
+          <Controller
+            control={form.control}
+            name="name"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Nombre</FieldLabel>
+                <Input
+                  {...field}
+                  id={field.name}
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Art. Electricos"
+                  autoComplete="off"
+                  className='bg-secondary/50'
+                />
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              </Field>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="codigoSin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Producto / Servicio SIN</FormLabel>
+          <Controller
+            control={form.control}
+            name="description"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Descripción (Opcional)</FieldLabel>
+                <Textarea
+                  {...field}
+                  id={field.name}
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Cables eléctricos y de conexión"
+                  autoComplete="off"
+                  className='bg-secondary/50'
+                />
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              </Field>
+            )}
+          />
 
-                    <ProductServiceSelector
-                      items={dataProductsService?.registers ?? []}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit">Aceptar</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit">Aceptar</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

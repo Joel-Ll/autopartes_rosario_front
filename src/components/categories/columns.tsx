@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
+
 import type { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal } from "lucide-react"
+import { CheckCircle, Edit2, EyeIcon, MoreHorizontal, Tag, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -10,86 +12,95 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from '@/components/ui/badge';
+
 import type { Category } from '@/types/categories/categories.types'
 import EditCategory from './EditCategory'
-import { formatDate } from '@/utils'
+import { ChangeState } from './ChangeState'
 
 export const columns: ColumnDef<Category>[] = [
   {
-    accessorKey: "createdAt",
-    header: () => <div className='w-52'>Fecha de Registro</div>,
-    cell: ({ row }) => {
-      const date = formatDate(new Date(row.getValue('createdAt')));
-
-      return (
-        <div className="text-sm">
-          {date}
-        </div>
-      );
-    }
-  },
-  {
     accessorKey: "name",
-    header: () => (
-      <div className='w-28'>Categoría</div>
-    ),
+    header: "Categoría",
     cell: ({ row }) => {
-      return <div className='uppercase'>{row.getValue('name')}</div>
+      const navigate = useNavigate();
+      const categoryId = row.original._id;
+      return (
+        <div className="flex items-center gap-2 "
+          onClick={() => navigate(`/categories/view/${categoryId}`)}
+        >
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Tag className="h-4 w-4 text-primary" />
+          </div>
+          <p className="font-medium cursor-pointer">{row.original.name}</p>
+        </div>
+      )
     }
   },
   {
-    accessorKey: "codigoActividadSin",
-    header: () => (
-      <div className='w-28'>Actividad SIN</div>
-    ),
+    accessorKey: "totalProducts",
+    header: () => <div className='text-center'>Productos</div>,
     cell: ({ row }) => {
-      return <div>{row.getValue('codigoActividadSin')}</div>
+      return (
+        <div className="flex flex-col items-center">
+          <p className='font-semibold'>{row.original.totalProducts}</p>
+          <p className='text-muted-foreground text-xs'>Productos</p>
+        </div>
+      )
     }
   },
 
   {
-    accessorKey: "codigoProductoSin",
-    header: () => (
-      <div className='w-28'>Producto SIN</div>
-    ),
+    accessorKey: "stockTotal",
+    header: () => <div className='text-center'>Stock total</div>,
     cell: ({ row }) => {
-      return <div>{row.getValue('codigoProductoSin')}</div>
+      return (
+        <div className="flex flex-col items-center">
+          <p className='font-semibold'>{row.original.stockTotal}</p>
+          <p className='text-muted-foreground text-xs'>unidades</p>
+        </div>
+      )
     }
   },
   {
-    accessorKey: "products",
-    header: () => <div className="w-28">Productos</div>,
+    accessorKey: "inventoryValue",
+    header: () => <div className="text-right">Valor inventario</div>,
     cell: ({ row }) => {
-      const products: [] = row.getValue('products') || [];
-      const count = products.length
-
-      return <div>{count}</div>;
+      return (
+        <p className='font-bold text-right'>Bs. <span className='font-normal text-muted-foreground'>{row.original.inventoryValue.toLocaleString()}</span></p>
+      )
     }
   },
   {
     accessorKey: "isActive",
-    header: () => <div className="w-28">Estado</div>,
+    header: "Estado",
     cell: ({ row }) => {
       const isActive: boolean = row.getValue('isActive');
 
       return (
-        <Badge variant={'outline'} className={
-          isActive
-            ? "border-emerald-500 text-emerald-600 bg-emerald-50"
-            : "border-red-500 text-red-600 bg-red-50"
-        }>
-          {isActive ? "Activo" : "Inactivo"}
-        </Badge>
+        <>
+          {isActive ? (
+
+            <Badge className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+              Activo
+            </Badge>
+          ) : (
+            <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300">
+              Inactivo
+            </Badge>
+          )}
+        </>
       );
     }
   },
 
   {
     id: "actions",
-    header: () => <div className="w-28">Acciones</div>,
     cell: ({ row }) => {
       const categoryId = row.original._id
+      const navigate = useNavigate();
       const [open, setOpen] = useState(false);
+      const [openChange, setOpenChange] = useState(false);
+
       return (
         <>
           <DropdownMenu>
@@ -100,9 +111,30 @@ export const columns: ColumnDef<Category>[] = [
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/categories/view/${categoryId}`)} >
+                <EyeIcon />
+                Ver
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setOpen(true)}
-              >Editar</DropdownMenuItem>
+              >
+                <Edit2 />
+                Editar
+              </DropdownMenuItem>
+
+              <DropdownMenuItem variant={row.original.isActive === true ? 'destructive' : 'default'} onClick={() => setOpenChange(true)}>
+                {row.original.isActive === true ? (
+                  <>
+                    <XCircle />
+                    Inactivar
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle />
+                    Activar
+                  </>
+                )}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -110,6 +142,14 @@ export const columns: ColumnDef<Category>[] = [
             open={open}
             setOpen={setOpen}
             categoryId={categoryId}
+            categoryObj={row.original}
+          />
+
+          <ChangeState
+            openChange={openChange}
+            setOpenChange={setOpenChange}
+            categoryId={categoryId}
+            state={row.original.isActive}
           />
         </>
       )

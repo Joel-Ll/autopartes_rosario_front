@@ -18,13 +18,11 @@ const badgeVariants = cva(
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         success:
-          "border-success text-success hover:bg-success/10 hover:text-success",
+          "border-success bg-success/5 text-success",
         sunflower:
           "border-transparent bg-sunflower text-sunflower-foreground [a&]:hover:bg-sunflower/90 focus-visible:ring-sunflower/20 dark:focus-visible:ring-sunflower/40",
         warning:
-          "border-transparent bg-amber-500 text-white [a&]:hover:bg-amber-500/90 focus-visible:ring-amber-500/20 dark:focus-visible:ring-amber-500/40",
-        available:
-          "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/90",
+          "border-destructive bg-destructive/5 text-destructive",
       },
     },
     defaultVariants: {

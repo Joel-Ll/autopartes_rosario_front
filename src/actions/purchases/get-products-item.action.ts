@@ -4,7 +4,7 @@ import { productItemsSchema } from '@/types/purchases/purchases-type';
 
 export const getProductsItemAction = async () => {
   try {
-    const url = '/products';
+    const url = '/products/select';
     const { data } = await api.get(url);
     const result = productItemsSchema.safeParse(data);
     if (result.success)

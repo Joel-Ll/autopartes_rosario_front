@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
+
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -8,10 +10,11 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type FilterFn,
 } from "@tanstack/react-table"
-import { Filter, Search } from 'lucide-react'
 import { useTablePersistence } from '@/hooks/useTable'
 
+import { Filter, Plus, Search } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -20,26 +23,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
-import DetailProduct from './DetailProduct'
 import type { Product } from '@/types/products/products.type'
+import { useSelectCategory } from '@/hooks/useCategory'
 
 interface DataTableProps<TData extends Product, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[];
   isLoading: boolean;
-  onRowDoubleClick?: (product: TData) => void;
 }
+
+const customFilter: FilterFn<any> = (row, _, filterValue) => {
+  const searchTerm = filterValue?.toLowerCase().trim() || "";
+  if (!searchTerm) return true;
+
+  const internalcode = row.original.internalCode?.toLowerCase().trim() || "";
+  const catalogCode = row.original.catalogCode?.toLowerCase().trim() || "";
+  const description = row.original.description?.toLowerCase() || "";
+  const brand = row.original.brand?.toLowerCase() || "";
+  const category = row.original.category?.name?.toLowerCase() || "";
+  const supplier = row.original.supplier?.enterprise?.toLowerCase() || "";
+
+  return internalcode.includes(searchTerm) ||
+    catalogCode.includes(searchTerm) ||
+    description.includes(searchTerm) ||
+    brand.includes(searchTerm) ||
+    category.includes(searchTerm) ||
+    supplier.includes(searchTerm);
+};
 
 export function DataTable<TData extends Product, TValue>({
   columns,
@@ -47,10 +62,22 @@ export function DataTable<TData extends Product, TValue>({
   isLoading
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, onColumnVisibilityChange] = useTablePersistence('products');
-  const [product, setProduct] = useState<Product>();
-  const [openView, setOpenView] = useState(false);
+  const [currentState, setCurrentState] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const { data: categoriesSelect = [] } = useSelectCategory();
+  const navigate = useNavigate();
 
+  const handleCategoryFilter = (categoryId: string) => {
+    setCategoryFilter(categoryId);
+    if (categoryId === 'all') {
+      table.getColumn('category')?.setFilterValue(undefined);
+      return
+    } else {
+      table.getColumn('category')?.setFilterValue(categoryId);
+    }
+  };
 
   const table = useReactTable({
     data,
@@ -61,9 +88,11 @@ export function DataTable<TData extends Product, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnVisibilityChange,
+    globalFilterFn: customFilter,
     state: {
       columnFilters,
       columnVisibility,
+      globalFilter,
     },
     autoResetPageIndex: true,
     initialState: {
@@ -75,70 +104,71 @@ export function DataTable<TData extends Product, TValue>({
 
   return (
     <>
-      <Card className='w-full'>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex items-center relative">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+      <Card>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+            <div className="flex flex-1 gap-5 flex-wrap items-center">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="source"
                   type="search"
-                  placeholder="Buscar..."
-                  value={(table.getState().globalFilter as string) ?? ""}
-                  onChange={(event) => table.setGlobalFilter(event.target.value)}
-                  className="w-full lg:w-[400px] pl-9 bg-secondary/50 border-border text-sm"
+                  placeholder="Buscar por código, descripción..."
+                  value={globalFilter ?? ""}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                  className="pl-9 bg-secondary/50"
                 />
               </div>
-              <Select value={''} onValueChange={() => { }}>
-                <SelectTrigger className="w-full sm:w-48">
+
+              <Select
+                value={categoryFilter}
+                onValueChange={(value) => handleCategoryFilter(value)}
+              >
+                <SelectTrigger className="w-full sm:w-56">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filtrar por categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  <SelectItem value="electronica">Electrónica</SelectItem>
-                  <SelectItem value="alimentos">Alimentos</SelectItem>
-                  <SelectItem value="textil">Textil</SelectItem>
-                  <SelectItem value="hogar">Hogar</SelectItem>
-                  <SelectItem value="otros">Otros</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {categoriesSelect.map((category) => (
+                    <SelectItem key={category._id} value={category._id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
+              <Select
+                value={currentState}
+                onValueChange={(value) => {
+                  setCurrentState(value);
+                  if (value === 'all') {
+                    table.getColumn('isActive')?.setFilterValue(undefined);
+                    return;
+                  } else {
+                    const booleanValue = value === 'true';
+                    table.getColumn('isActive')?.setFilterValue(booleanValue);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-56">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="true">Activo</SelectItem>
+                  <SelectItem value="false">Inactivo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
-                  Columnas
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter(
-                    (column) => column.getCanHide()
-                  )
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id}
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button className='gap-2 w-full md:w-fit' onClick={() => navigate('/products/new')}>
+              <Plus className="h-5 w-5" />
+              Nuevo Producto
+            </Button>
           </div>
-        </CardHeader>
 
-        <CardContent>
-          <div className="overflow-hidden rounded-md border">
+          <div className="overflow-hidden rounded-md border bg-white shadow-sm mt-5">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -175,10 +205,6 @@ export function DataTable<TData extends Product, TValue>({
                           <TableRow
                             key={row.id}
                             data-state={row.getIsSelected() && "selected"}
-                            onDoubleClick={() => {
-                              setProduct(row.original as Product);
-                              setOpenView(true);
-                            }}
                           >
                             {row.getVisibleCells().map((cell) => (
                               <TableCell key={cell.id}>
@@ -197,7 +223,6 @@ export function DataTable<TData extends Product, TValue>({
                     </>
                   )
                 }
-
               </TableBody>
             </Table>
           </div>
@@ -245,11 +270,9 @@ export function DataTable<TData extends Product, TValue>({
         </CardContent>
       </Card>
 
-      <DetailProduct
-        product={product}
-        openView={openView}
-        setOpenView={setOpenView}
-      />
+
+
+
     </>
   )
 }

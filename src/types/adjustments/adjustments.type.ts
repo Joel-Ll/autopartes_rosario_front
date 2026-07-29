@@ -4,7 +4,8 @@ import { productSchema } from '../products/products.type';
 export const adjustmentSchema = z.object({
   _id: z.string(),
   product: productSchema.pick({
-    code: true,
+    internalCode: true,
+    catalogCode: true,
     description: true
   }),
   adjustmentType: z.string(),

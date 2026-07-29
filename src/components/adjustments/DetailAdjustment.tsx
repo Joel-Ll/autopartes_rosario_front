@@ -1,3 +1,5 @@
+import type { Dispatch, SetStateAction } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getAdjustmentAction } from '@/actions/adjustments/get-adjustment.action';
 import {
   Dialog,
@@ -6,10 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from '@/components/ui/badge';
 import type { Adjustment } from '@/types/adjustments/adjustments.type';
-import { useQuery } from '@tanstack/react-query';
-import type { Dispatch, SetStateAction } from 'react';
-import { Badge } from '../ui/badge';
+import { formatDate } from '@/utils';
 
 interface Props {
   openView: boolean;
@@ -52,7 +53,7 @@ export const DetailAdjustment = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Fecha</span>
-              <span className="text-sm font-medium">{selectedAdjustment.createdAt}</span>
+              <span className="text-sm font-medium">{formatDate(new Date(selectedAdjustment.createdAt))}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Producto</span>
@@ -60,7 +61,7 @@ export const DetailAdjustment = ({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Código</span>
-              <span className="text-sm font-medium">{selectedAdjustment.product.code}</span>
+              <span className="text-sm font-medium">#{selectedAdjustment.product.internalCode} • {selectedAdjustment.product.catalogCode ? selectedAdjustment.product.catalogCode : 's/n'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Tipo</span>

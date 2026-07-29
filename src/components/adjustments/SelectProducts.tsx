@@ -1,5 +1,4 @@
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -14,118 +13,168 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { Check, ChevronsUpDown, Package } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getThumbnailUrl } from '@/utils';
 
 export interface SearchableSelectOption {
-  value: string;
-  label: string;
-  stock: number;
+  value:         string;
+  internalCode:  string;   // código interno  → búsqueda
+  catalogCode:   string;   // código catálogo → búsqueda
+  description:   string;   // descripción     → búsqueda
+  image:         string;
+  stock:         number;
 }
 
 interface Props {
-  options: SearchableSelectOption[];
-  value?: string;
-  onValueChange?: (value: string) => void;
-  placeholder?: string;
+  options?:           SearchableSelectOption[];
+  value?:             string;
+  onValueChange?:     (value: string) => void;
+  placeholder?:       string;
   searchPlaceholder?: string;
-  emptyMessage?: string;
-  className?: string;
-  disabled?: boolean;
-  currentStock: number | undefined
-  setCurrentStock: Dispatch<SetStateAction<number | undefined>>
+  emptyMessage?:      string;
+  className?:         string;
+  disabled?:          boolean;
 }
 
 export const SelectProducts = ({
   options,
   value,
   onValueChange,
-  placeholder,
-  searchPlaceholder,
-  emptyMessage,
+  placeholder       = "Seleccionar producto...",
+  searchPlaceholder = "Buscar por código o descripción...",
+  emptyMessage      = "Sin resultados",
   className,
   disabled,
-  currentStock,
-  setCurrentStock
 }: Props) => {
   const [open, setOpen] = useState(false);
-  const selectedOption = options.find((option) => option.value === value);
+
+  const selectedOption = options?.find((o) => o.value === value);
+
+  const handleSelect = (option: SearchableSelectOption) => {
+    onValueChange?.(option.value === value ? "" : option.value);
+    setOpen(false);
+  };
+
+  // Cadena que cmdy usa para filtrar — incluye los tres campos buscables
+  const searchValue = (option: SearchableSelectOption) =>
+    [option.internalCode, option.catalogCode, option.description]
+      .filter(Boolean)
+      .join(" ");
 
   return (
-    <>
-      <TooltipProvider delayDuration={300}>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className={cn(
-                "w-full justify-between font-normal",
-                !value && "text-muted-foreground",
-                className
-              )}
-              disabled={disabled}
-            >
-              <span className="truncate flex-1 text-left">
-                {selectedOption ? selectedOption.label : placeholder}
-              </span>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-            <Command>
-              <CommandInput placeholder={searchPlaceholder} />
-              <CommandList className="max-h-60">
-                <CommandEmpty>{emptyMessage}</CommandEmpty>
-                <CommandGroup>
-                  {options.map((option) => (
-                    <Tooltip key={option.value}>
-                      <TooltipTrigger asChild>
-                        <CommandItem
-                          value={option.label}
-                          onSelect={() => {
-                            onValueChange?.(option.value === value ? "" : option.value);
-                            setOpen(false);
-                            setCurrentStock(option.stock)
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4 shrink-0",
-                              value === option.value ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <span className="truncate">{option.label}</span>
-                        </CommandItem>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="right"
-                        className="max-w-xs wrap-break-word"
-                        sideOffset={5}
-                      >
-                        {option.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </TooltipProvider>
+    <div className="space-y-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between font-normal",
+              !value && "text-muted-foreground",
+              className
+            )}
+          >
+            {selectedOption ? (
+              <div className="flex items-center gap-2 min-w-0">
+                {selectedOption.image ? (
+                  <img
+                    src={getThumbnailUrl(selectedOption.image)}
+                    alt={selectedOption.description}
+                    className="w-5 h-5 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <Package className="w-4 h-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="truncate">{selectedOption.description}</span>
+              </div>
+            ) : (
+              <span>{placeholder}</span>
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
 
-      {currentStock !== undefined && (
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+        >
+          <Command
+            filter={(itemValue, search) => {
+              const option = options?.find((o) => searchValue(o) === itemValue);
+              if (!option) return 0;
+              const hay = searchValue(option).toLowerCase();
+              return hay.includes(search.toLowerCase()) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder={searchPlaceholder} />
+            <CommandList className="max-h-60">
+              <CommandEmpty>{emptyMessage}</CommandEmpty>
+              <CommandGroup>
+                {options?.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={searchValue(option)}
+                    onSelect={() => handleSelect(option)}
+                    className="cursor-pointer"
+                  >
+                    <Check
+                      className={cn(
+                        "h-4 w-4 shrink-0 mr-2",
+                        value === option.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+
+                    {option.image ? (
+                      <img
+                        src={getThumbnailUrl(option.image)}
+                        alt={option.description}
+                        className="w-10 h-10 rounded object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-muted flex items-center justify-center rounded shrink-0">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    <div className="ml-2 min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate">{option.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {option.internalCode}
+                        {option.catalogCode ? ` · ${option.catalogCode}` : ''}
+                      </p>
+                    </div>
+
+                    <span className={cn(
+                      "ml-auto text-xs px-1.5 py-0.5 rounded-full shrink-0",
+                      option.stock > 0
+                        ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                        : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+                    )}>
+                      {option.stock}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {selectedOption && (
         <p className="text-xs text-muted-foreground">
-          Stock actual: <span className="font-semibold">{currentStock}</span> unidades
+          Stock actual:{" "}
+          <span className={cn(
+            "font-semibold",
+            selectedOption.stock > 0 ? "text-green-600" : "text-red-500"
+          )}>
+            {selectedOption.stock}
+          </span>{" "}
+          unidades
         </p>
       )}
-    </>
-  )
-}
+    </div>
+  );
+};

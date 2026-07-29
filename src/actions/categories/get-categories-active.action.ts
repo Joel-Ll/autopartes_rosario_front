@@ -1,13 +1,12 @@
-
 import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
-import { categoriesActiveSchema } from '@/types/categories/categories.types';
+import { categoriesSelectSchema } from '@/types/categories/categories.types';
 
 export const getCategoriesActiveAction = async () => {
   try {
-    const url = `/categories/active`;
+    const url = `/categories/select`;
     const { data } = await api.get(url);
-    const response = categoriesActiveSchema.safeParse(data);
+    const response = categoriesSelectSchema.safeParse(data);
     if (response.success)
       return response.data;
   } catch (error) {

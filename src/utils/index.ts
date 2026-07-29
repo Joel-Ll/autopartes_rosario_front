@@ -1,8 +1,23 @@
+import { routeMetadata } from "@/types/route";
+
+export const getThumbnailUrl = (
+  url: string,
+  width = 100,
+  height = 100
+) => {
+  if (!url.includes("cloudinary")) return url;
+
+  return url.replace(
+    "/upload/",
+    `/upload/w_${width},h_${height},c_fill,f_auto,q_auto/`
+  );
+};
+
 export const formatDate = (isoDateString: Date): string => {
   const formatDate = isoDateString.toLocaleString('es-BO', {
     timeZone: 'America/La_Paz',
     day: '2-digit',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   });
 
@@ -31,3 +46,13 @@ export const formatCurrency = (amout: number): string => {
     maximumFractionDigits: 2
   }).format(amout)
 }
+
+export function generateUniqueId(): number {
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+export const getCurrentPage = (pathname: string) => {
+  return routeMetadata.find(route =>
+    pathname.startsWith(route.startsWith)
+  );
+};

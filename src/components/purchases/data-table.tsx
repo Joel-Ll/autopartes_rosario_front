@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
+
 import {
   type ColumnDef,
   type ColumnFiltersState,
+  type FilterFn,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -9,8 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { Search } from 'lucide-react'
-import { useTablePersistence } from '@/hooks/useTable'
+import { Filter, Plus, Search } from 'lucide-react'
 
 import {
   Table,
@@ -21,27 +23,50 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
-import type { Purchase } from '@/types/purchases/purchases-type'
+import type { PurchaseData } from '@/types/purchases/purchases-type'
+import { useSelectSupplier } from '@/hooks/useSupplier'
 
-interface DataTableProps<TData extends Purchase, TValue> {
+interface DataTableProps<TData extends PurchaseData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[];
   isLoading: boolean;
-  onRowDoubleClick?: (product: TData) => void;
 }
 
-export function DataTable<TData extends Purchase, TValue>({
+const customFilter: FilterFn<any> = (row, _, filterValue) => {
+  const searchTerm = filterValue?.toLowerCase().trim() || "";
+  if (!searchTerm) return true;
+
+  const invoiceNumber = row.original.invoiceNumber?.toLowerCase() || "";
+
+  return invoiceNumber.includes(searchTerm)
+};
+
+
+export function DataTable<TData extends PurchaseData, TValue>({
   columns,
   data,
   isLoading
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, onColumnVisibilityChange] = useTablePersistence('products');
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [currentState, setCurrentState] = useState('');
+  const { data: suppliersSelect = [] } = useSelectSupplier();
+  const navigate = useNavigate();
 
+  const handleSupplierFilter = (supplierId: string) => {
+    setSupplierFilter(supplierId);
+    if (supplierId === 'all') {
+      table.getColumn('supplier')?.setFilterValue(undefined);
+      return
+    } else {
+      table.getColumn('supplier')?.setFilterValue(supplierId);
+    }
+  };
 
   const table = useReactTable({
     data,
@@ -51,10 +76,10 @@ export function DataTable<TData extends Purchase, TValue>({
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onColumnVisibilityChange,
+    globalFilterFn: customFilter,
     state: {
       columnFilters,
-      columnVisibility,
+      globalFilter
     },
     autoResetPageIndex: true,
     initialState: {
@@ -66,25 +91,71 @@ export function DataTable<TData extends Purchase, TValue>({
 
   return (
     <>
-      <Card className='w-full'>
-        <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center relative">
-              <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="source"
-                type="search"
-                placeholder="Buscar..."
-                value={(table.getState().globalFilter as string) ?? ""}
-                onChange={(event) => table.setGlobalFilter(event.target.value)}
-                className="w-full lg:w-[400px] pl-9 bg-secondary/50 border-border text-sm"
-              />
-            </div>
-          </div>
-        </CardHeader>
-
+      <Card>
         <CardContent>
-          <div className="overflow-hidden rounded-md border">
+          <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+            <div className="flex flex-1 gap-5 flex-wrap items-center">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="source"
+                  type="search"
+                  placeholder="Buscar por Nro Fac. / Lot."
+                  value={globalFilter ?? ""}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                  className="pl-9 bg-secondary/50"
+                />
+              </div>
+
+              <Select
+                value={supplierFilter}
+                onValueChange={(value) => handleSupplierFilter(value)}
+              >
+                <SelectTrigger className="w-full sm:w-56">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filtrar por proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {suppliersSelect.map((supplier) => (
+                    <SelectItem key={supplier._id} value={supplier._id}>
+                      {supplier.enterprise}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={currentState}
+                onValueChange={(value) => {
+                  setCurrentState(value);
+                  if (value === 'all') {
+                    table.getColumn('status')?.setFilterValue(undefined);
+                    return;
+                  } else {
+                    table.getColumn('status')?.setFilterValue(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-56">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="realized">Realizado</SelectItem>
+                  <SelectItem value="overridden">Anulado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button className='gap-2 w-full md:w-auto' onClick={() => navigate('new')}>
+              <Plus className="h-4 w-4" />
+              Nueva Compra
+            </Button>
+          </div>
+          
+          <div className="overflow-hidden rounded-md border bg-white shadow-sm mt-5">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -143,7 +214,6 @@ export function DataTable<TData extends Purchase, TValue>({
               </TableBody>
             </Table>
           </div>
-
           <div className='flex gap-5 justify-between items-center mt-5'>
             <Select
               onValueChange={(value) => {
@@ -184,6 +254,7 @@ export function DataTable<TData extends Purchase, TValue>({
               </Button>
             </div>
           </div>
+
         </CardContent>
       </Card>
     </>

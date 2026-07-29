@@ -1,8 +1,12 @@
-import { CalendarIcon, FileText, Minus, ShoppingCart, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { purchaseFormSchema, type ProductCatalog, type ProductItem, type PurchaseFormValues } from '@/types/purchases/purchases-type';
+import { useSelectSupplier } from '@/hooks/useSupplier';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { CalendarIcon, Minus, Package, ShoppingCart, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -11,36 +15,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Field, FieldError, FieldLabel } from '../ui/field';
-import { useSelectSupplier } from '@/hooks/useSupplier';
-import type { SupplierActive } from '@/types/suppliers/suppliers.type';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { cn } from '@/lib/utils';
-import { Calendar } from '../ui/calendar';
-import { useState } from 'react';
-import { toast } from "sonner";
-import { TableHeader, TableRow, TableHead, TableBody, TableCell, TableFooter, Table } from '../ui/table';
-import { Badge } from '../ui/badge';
-import { useNavigate } from 'react-router';
-import type z from 'zod';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { TableHeader, TableRow, TableHead, TableBody, TableCell, TableFooter, Table } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Label } from '@/components/ui/label';
+
+import type { SupplierSelect } from '@/types/suppliers/suppliers.type';
+import { purchaseFormSchema, type ProductCatalog, type ProductItem, type PurchaseFormValues } from '@/types/purchases/purchases-type';
+
 import { getProductsItemAction } from '@/actions/purchases/get-products-item.action';
 import { registerPurchaseAction } from '@/actions/purchases/register-purchase.action';
-import { formatDate } from '@/utils';
-import { SearchableSelect } from '../ui/searchable-select';
+import { cn } from '@/lib/utils';
+import { formatDate, getThumbnailUrl } from '@/utils';
+import { toast } from "sonner";
+import type z from 'zod';
 
 export const CreatePurchaseForm = () => {
   const navigate = useNavigate();
-  const { data: suppliersActive } = useSelectSupplier();
+  const { data: suppliersSelect = [] } = useSelectSupplier();
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const suppliersActive = suppliersSelect?.filter(supp => supp.isActive) || [];
 
   const { data: catalogProducts } = useQuery({
     queryKey: ['product-items'],
     queryFn: getProductsItemAction,
     retry: false,
   });
+
+  const activeProducts = catalogProducts?.filter(prod => prod.isActive) || [];
 
   const form = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseFormSchema),
@@ -117,169 +124,162 @@ export const CreatePurchaseForm = () => {
   }
 
   return (
-    <div className="space-y-6 my-5">
-      <form onSubmit={form.handleSubmit(onSubmit)} id="form-rhf-demo" >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <FileText className="h-5 w-5 text-primary" />
-              Datos de la Compra
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Proveedor */}
-              <Controller
-                name='supplier'
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    data-invalid={fieldState.invalid}
+    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
+      <Card>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Proveedor */}
+            <Controller
+              name='supplier'
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field
+                  data-invalid={fieldState.invalid}
+                >
+                  <FieldLabel>Proveedor *</FieldLabel>
+                  <Select
+                    name={field.name}
+                    value={field.value}
+                    onValueChange={field.onChange}
                   >
-                    <FieldLabel>Proveedor *</FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
+                    <SelectTrigger
+                      id="form-rhf-select-language"
+                      aria-invalid={fieldState.invalid}
+                      className="min-w-[120px]"
                     >
-                      <SelectTrigger
-                        id="form-rhf-select-language"
-                        aria-invalid={fieldState.invalid}
-                        className="min-w-[120px]"
-                      >
-                        <SelectValue placeholder="Seleccione" />
-                      </SelectTrigger>
-                      <SelectContent position="item-aligned">
-                        {suppliersActive && suppliersActive.length > 0 ? (
-                          <>
-                            {suppliersActive.map((item: SupplierActive) => (
-                              <SelectItem key={item._id} value={item._id} >
-                                {item.enterprise}
-                              </SelectItem>
-                            ))}
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem disabled value="no-data">
-                              No hay registros
+                      <SelectValue placeholder="Seleccione" />
+                    </SelectTrigger>
+                    <SelectContent position="item-aligned">
+                      {suppliersActive && suppliersActive.length > 0 ? (
+                        <>
+                          {suppliersActive.map((item: SupplierSelect) => (
+                            <SelectItem key={item._id} value={item._id} >
+                              {item.enterprise}
                             </SelectItem>
-                          </>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem disabled value="no-data">
+                            No hay registros
+                          </SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {/* Nro Factura / Lote */}
+            <Controller
+              name="invoiceNumber"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Nro. Factura / Lote *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Ej: FAC-00123"
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {/* Date */}
+            <Controller
+              name="date"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Fecha *</FieldLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        aria-invalid={fieldState.invalid}
+                        variant="outline"
+                        className={cn(
+                          "w-[280px] justify-start text-left font-normal",
+                          !field.value && "text-muted-foreground"
                         )}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? formatDate(new Date(field.value)) : <span>Seleccione una fecha</span>}
+                      </Button>
+                    </PopoverTrigger>
 
-              {/* Nro Factura / Lote */}
-              <Controller
-                name="invoiceNumber"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Nro. Factura / Lote *</FieldLabel>
-                    <Input
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Ej: FAC-00123"
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => field.onChange(date)}
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-              {/* Date */}
-              <Controller
-                name="date"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Fecha *</FieldLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          aria-invalid={fieldState.invalid}
-                          variant="outline"
-                          className={cn(
-                            "w-[280px] justify-start text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? formatDate(new Date(field.value)) : <span>Seleccione una fecha</span>}
-                        </Button>
-                      </PopoverTrigger>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
 
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={(date) => field.onChange(date)}
-                        />
-                      </PopoverContent>
-                    </Popover>
+            {/* Notas */}
+            <Controller
+              name="detail"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Detalle / Observación</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Nota adicional..."
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
 
-              {/* Notas */}
-              <Controller
-                name="detail"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Detalle / Observación</FieldLabel>
-                    <Input
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Nota adicional..."
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+      <Card className='mt-5'>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              Detalle de Productos
+            </CardTitle>
+
+            <SearchableSelect
+              label='Agregar Producto'
+              searchOpen={searchOpen}
+              setSearchOpen={setSearchOpen}
+              catalogProducts={activeProducts}
+              handleAddProduct={handleAddProduct}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {form.getValues('items').length === 0 ? (
+            <div className="text-center py-16 border-2 border-dashed rounded-lg">
+              <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground font-medium">No hay productos agregados</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">
+                Use el botón "Agregar Producto" para buscar y seleccionar
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-
-        <Card className='mt-5'>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <ShoppingCart className="h-5 w-5 text-primary" />
-                Detalle de Productos
-              </CardTitle>
-
-              <SearchableSelect
-                label='Agregar Producto'
-                searchOpen={searchOpen}
-                setSearchOpen={setSearchOpen}
-                catalogProducts={catalogProducts}
-                handleAddProduct={handleAddProduct}
-              />
-
-            </div>
-          </CardHeader>
-          <CardContent>
-            {form.getValues('items').length === 0 ? (
-              <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-muted-foreground font-medium">No hay productos agregados</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">
-                  Use el botón "Agregar Producto" para buscar y seleccionar
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-md border">
+          ) : (
+            <>
+              {/* desktop */}
+              <div className="hidden lg:block rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -293,21 +293,38 @@ export const CreatePurchaseForm = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+
                     {form.getValues('items').map((item, index) => (
                       <TableRow key={item._id}>
                         <TableCell className="text-muted-foreground font-mono text-xs py-8">
                           {index + 1}
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium text-sm leading-tight">{item.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {item.code}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                {item.brand}
-                              </Badge>
+                          <div className="flex items-center gap-2 w-[300px]">
+                            {item.image ? (
+                              <img
+                                src={getThumbnailUrl(item.image)}
+                                alt='imagen producto'
+                                className="h-15 w-15 rounded object-cover shrink-0"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-15 w-15 rounded bg-muted flex items-center justify-center shrink-0">
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1 flex flex-col gap-1">
+                              <p
+                                className="font-medium text-sm leading-tight truncate"
+                                title={item.description}
+                              >
+                                {item.description}
+                              </p>
+
+                              <p className="text-xs text-muted-foreground truncate">
+                                #{item.internalCode} • {item.catalogCode === '' ? 's/n' : item.catalogCode}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
@@ -417,7 +434,7 @@ export const CreatePurchaseForm = () => {
                           </TooltipProvider>
                         </TableCell>
                         <TableCell className="text-right font-semibold tabular-nums">
-                          Bs. {getSubtotal(item).toFixed(2)}
+                          Bs. {getSubtotal(item).toLocaleString()}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -439,28 +456,128 @@ export const CreatePurchaseForm = () => {
                         Total:
                       </TableCell>
                       <TableCell className="text-right font-bold text-lg text-primary tabular-nums">
-                        Bs. {getTotal(form.getValues('items')).toFixed(2)}
+                        Bs. {getTotal(form.getValues('items')).toLocaleString()}
                       </TableCell>
                       <TableCell />
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <div className="flex gap-4 justify-end mt-5">
-          <Field orientation="horizontal">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="form-rhf-demo" disabled={!form.getValues('items').length}>
-              Aceptar
-            </Button>
-          </Field>
-        </div>
-      </form>
-    </div>
+              {/* mobile */}
+              <div className="lg:hidden space-y-4">
+                {form.getValues("items").map((item, index) => (
+                  <>
+                    <Card key={item._id}>
+                      <CardContent className="p-4 space-y-4">
+
+                        {/* Producto */}
+                        <div className="flex gap-3">
+                          {item.image ? (
+                            <img
+                              src={getThumbnailUrl(item.image)}
+                              className="h-16 w-16 rounded object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="h-16 w-16 rounded bg-muted flex items-center justify-center">
+                              <Package className="h-5 w-5" />
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-2">
+                            <p className="font-medium leading-tight text-md">
+                              {item.description}
+                            </p>
+
+                            <p className="text-xs text-muted-foreground truncate">
+                              #{item.internalCode} • {item.catalogCode === '' ? 's/n' : item.catalogCode}
+                            </p>
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+
+                        {/* Cantidad */}
+                        <div className='space-y-2'>
+                          <Label>Cantidad</Label>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleUpdateItem(index, "quantity", Number(e.target.value))
+                            }
+                          />
+                        </div>
+
+                        {/* Compra */}
+                        <div className='space-y-2'>
+                          <Label>Precio compra</Label>
+                          <Input
+                            type="number"
+                            value={item.purchasePrice}
+                            onChange={(e) =>
+                              handleUpdateItem(index, "purchasePrice", Number(e.target.value))
+                            }
+                          />
+                        </div>
+
+                        {/* Venta */}
+                        <div className='space-y-2'>
+                          <Label>Precio venta</Label>
+                          <Input
+                            type="number"
+                            value={item.salePrice}
+                            onChange={(e) =>
+                              handleUpdateItem(index, "salePrice", Number(e.target.value))
+                            }
+                          />
+                        </div>
+
+                        {/* Total */}
+                        <div className="flex justify-between border-t pt-3">
+                          <span className="font-medium">Subtotal</span>
+
+                          <span className="font-bold text-primary">
+                            Bs. {getSubtotal(item).toLocaleString()}
+                          </span>
+                        </div>
+
+                      </CardContent>
+                    </Card>
+                    <Card className="mt-4">
+                      <CardContent className="flex justify-between items-center py-5">
+                        <span className="font-semibold">
+                          Total de la compra
+                        </span>
+
+                        <span className="text-2xl font-bold text-primary">
+                          Bs. {getTotal(form.getValues("items")).toLocaleString()}
+                        </span>
+                      </CardContent>
+                    </Card>
+                  </>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-4 justify-end mt-5">
+        <Button type="button" variant="outline" onClick={handleClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={!form.getValues('items').length}>
+          Aceptar
+        </Button>
+
+      </div>
+    </form>
   )
 }

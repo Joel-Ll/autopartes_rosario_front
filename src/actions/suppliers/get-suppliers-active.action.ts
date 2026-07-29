@@ -1,12 +1,12 @@
 import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
-import { suppliersActiveSchema } from '@/types/suppliers/suppliers.type';
+import { suppliersSelectSchema } from '@/types/suppliers/suppliers.type';
 
-export const getSuppliersActiveAction = async () => {
+export const getSuppliersSelectAction = async () => {
   try {
-    const url = `/suppliers/active`;
+    const url = `/suppliers/select`;
     const { data } = await api.get(url);
-    const response = suppliersActiveSchema.safeParse(data)
+    const response = suppliersSelectSchema.safeParse(data)
     if (response.success)
       return response.data
   } catch (error) {

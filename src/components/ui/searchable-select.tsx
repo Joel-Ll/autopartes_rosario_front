@@ -2,27 +2,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { Dispatch, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { Badge } from './badge';
 import type { ProductCatalog } from '@/types/purchases/purchases-type';
+import { getThumbnailUrl } from '@/utils';
 
 interface Props {
   label: string;
   searchOpen: boolean;
   setSearchOpen: Dispatch<SetStateAction<boolean>>;
-  catalogProducts: {
-    _id: string;
-    code: string;
-    description: string;
-    brand: string;
-    purchasePrice: number;
-    salePrice: number;
-  }[] | undefined;
+  catalogProducts: ProductCatalog[] | undefined,
   handleAddProduct: (product: ProductCatalog) => void
 }
 
-
 export const SearchableSelect = ({ label, searchOpen, setSearchOpen, catalogProducts, handleAddProduct }: Props) => {
+
   return (
     <Popover open={searchOpen} onOpenChange={setSearchOpen}>
       <PopoverTrigger asChild>
@@ -34,29 +28,53 @@ export const SearchableSelect = ({ label, searchOpen, setSearchOpen, catalogProd
       {catalogProducts && (
         <PopoverContent className="w-96 p-0" align="end">
           <Command>
-            <CommandInput placeholder="Buscar producto por nombre o código..." />
+            <CommandInput placeholder="Buscar por código o descripción..." />
             <CommandList className="max-h-64">
               <CommandEmpty>No se encontraron productos.</CommandEmpty>
               <CommandGroup heading="Productos disponibles">
-                {catalogProducts.map((product) => (
+                {catalogProducts.map((p) => (
+
                   <CommandItem
-                    key={product._id}
-                    value={`${product.code} ${product.description}`}
-                    onSelect={() => handleAddProduct(product)}
+                    key={p._id}
+                    value={[
+                      p.internalCode,
+                      p.catalogCode,
+                      p.description,
+                      p.brand
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                      .toLowerCase()}
+                    onSelect={() => handleAddProduct(p)}
                     className="cursor-pointer"
                   >
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {product.code}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {product.brand}
+                    {/* Imagen + info */}
+                    <div className="flex items-center gap-3" key={p._id}>
+                      {p.image ? (
+                        <img
+                          src={getThumbnailUrl(p.image)}
+                          className="w-15 h-15 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="w-15 h-15 bg-muted flex items-center justify-center rounded">
+                          <Package className="w-4 h-4" />
+                        </div>
+                      )}
+
+                      <div>
+                        <p
+                          className="text-xs font-medium truncate"
+                          title={p.description}
+                        >{p.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          #{p.internalCode} - {p.catalogCode === '' ? 's/n' : p.catalogCode}
+                        </p>
+                        <Badge variant="outline" className="text-xs">
+                          {p.brand}
                         </Badge>
                       </div>
-                      <span className="text-sm truncate">{product.description}</span>
                     </div>
-                    <Plus className="h-4 w-4 shrink-0 text-primary" />
+                    < Plus className="h-4 w-4 shrink-0 text-primary ml-auto" />
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -64,6 +82,6 @@ export const SearchableSelect = ({ label, searchOpen, setSearchOpen, catalogProd
           </Command>
         </PopoverContent>
       )}
-    </Popover>
+    </Popover >
   )
 }

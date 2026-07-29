@@ -1,5 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { useSelectCategory } from '@/hooks/useCategory';
+import { useSelectSupplier } from '@/hooks/useSupplier';
+import { zodResolver } from '@hookform/resolvers/zod';
+
 import { getProductAction } from '@/actions/products/get-product.action';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,20 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import UploadImage from '@/components/UploadImage';
-import { productFormSchema, type ProductFormValues } from '@/types/products/products.type';
-import type { SupplierActive } from '@/types/suppliers/suppliers.type';
-import type { CategoryActive } from '@/types/categories/categories.types';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useSelectCategory } from '@/hooks/useCategory';
-import { useSelectSupplier } from '@/hooks/useSupplier';
+import { productFormSchema, unitType, type ProductFormValues } from '@/types/products/products.type';
+import type { SupplierSelect } from '@/types/suppliers/suppliers.type';
 import { extractPublicIdFromUrl } from '@/utils';
-import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { updateProductAction } from '@/actions/products/update-product.action';
-import { useUnidadMedidaSiat } from '@/hooks/useSiat';
-import type { UnidadMedida } from '@/types/siat/siat';
-
 
 export default function EditProductView() {
   const navigate = useNavigate();
@@ -30,20 +27,22 @@ export default function EditProductView() {
   const [imagePreview, setImagePreview] = useState<string | undefined>('');
   const params = useParams();
   const productId = params.productId!;
-  const { data: categoriesActive } = useSelectCategory();
-  const { data: suppliersActive } = useSelectSupplier();
-  const { data: dataUnidadMedida } = useUnidadMedidaSiat();
+  const { data: categoriesSelect } = useSelectCategory();
+  const { data: suppliersSelect } = useSelectSupplier();
+  const suppliersActive = suppliersSelect?.filter(supp => supp.isActive) || [];
+  const activeCategories = categoriesSelect?.filter(cat => cat.isActive) || [];
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      code: "",
-      description: "",
-      image: "",
-      category: "",
-      supplier: "",
-      brand: "",
-      unidadMedidaCodigo: "",
+      catalogCode: '',
+      location: '',
+      description: '',
+      image: '',
+      category: '',
+      supplier: '',
+      brand: '',
+      unidadMedida: '',
       minStock: undefined,
       purchasePrice: undefined,
       salePrice: undefined
@@ -77,12 +76,13 @@ export default function EditProductView() {
     if (data) {
       const resetData = {
         image: data.image || "",
-        code: data.code || "",
+        catalogCode: data.catalogCode || "",
+        location: data.location || '',
         description: data.description || "",
         category: String(data.category?._id || data.category || ""),
         supplier: String(data.supplier?._id || data.supplier || ""),
         brand: data.brand || "",
-        unidadMedidaCodigo: data.unidadMedidaCodigo.toString() || '',
+        unidadMedida: data.unidadMedida || '',
         salePrice: data.salePrice || undefined,
         minStock: data.minStock || undefined,
         purchasePrice: data.purchasePrice || undefined,
@@ -131,12 +131,12 @@ export default function EditProductView() {
                 {/* Código */}
                 <FormField
                   control={form.control}
-                  name="code"
+                  name="catalogCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Código del Producto</FormLabel>
+                      <FormLabel>Código de Catálogo (opcional)</FormLabel>
                       <FormControl >
-                        <Input placeholder="SKU-001" {...field} />
+                        <Input placeholder="LD-7153" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -158,6 +158,7 @@ export default function EditProductView() {
                   )}
                 />
 
+
                 {/* Categoría */}
                 <FormField
                   control={form.control}
@@ -174,26 +175,23 @@ export default function EditProductView() {
                       >
                         <FormControl>
                           <SelectTrigger className='w-auto'>
-                            <SelectValue placeholder="Selecciona categoría" />
+                            <SelectValue placeholder={!field.value ? 'Categoría actual Inactiva' : 'Seleccionar categoría'} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categoriesActive && categoriesActive.length > 0 ? (
-                            <>
-                              {categoriesActive.map((item: CategoryActive) => (
-                                <SelectItem key={item._id} value={item._id} className='uppercase'>
-                                  {item.name}
-                                </SelectItem>
-                              ))}
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem disabled value="no-data">
-                                No hay registros
+                          {activeCategories.length > 0 ? (
+                            activeCategories.map((item) => (
+                              <SelectItem key={item._id} value={item._id} className='uppercase'>
+                                {item.name}
                               </SelectItem>
-                            </>
+                            ))
+                          ) : (
+                            <SelectItem disabled value="no-data">
+                              No hay categorías activas
+                            </SelectItem>
                           )}
                         </SelectContent>
+
                       </Select>
                       <FormMessage />
                     </FormItem>
@@ -222,7 +220,7 @@ export default function EditProductView() {
                         <SelectContent>
                           {suppliersActive && suppliersActive.length > 0 ? (
                             <>
-                              {suppliersActive.map((item: SupplierActive) => (
+                              {suppliersActive.map((item: SupplierSelect) => (
                                 <SelectItem key={item._id} value={item._id} >
                                   {item.enterprise}
                                 </SelectItem>
@@ -245,7 +243,7 @@ export default function EditProductView() {
                 {/* Unidad de Medida */}
                 <FormField
                   control={form.control}
-                  name="unidadMedidaCodigo"
+                  name="unidadMedida"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unidad Medida</FormLabel>
@@ -261,20 +259,14 @@ export default function EditProductView() {
                             <SelectValue placeholder="Selecciona una medida" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {dataUnidadMedida && dataUnidadMedida.length > 0 ? (
+                        <SelectContent position="item-aligned">
+                          {unitType && (
                             <>
-                              {dataUnidadMedida.map((item: UnidadMedida) => (
-                                <SelectItem key={item._id} value={item.codigoClasificador.toString()}>
-                                  {item.descripcion}
+                              {unitType.map((item) => (
+                                <SelectItem key={item.id} value={item.value} >
+                                  {item.label}
                                 </SelectItem>
                               ))}
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem disabled value="no-data">
-                                No hay registros
-                              </SelectItem>
                             </>
                           )}
                         </SelectContent>
@@ -343,6 +335,20 @@ export default function EditProductView() {
                             field.onChange(e.target.value === "" ? undefined : Number(e.target.value))
                           }
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ubicación (opcional)</FormLabel>
+                      <FormControl >
+                        <Input placeholder="A-01" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

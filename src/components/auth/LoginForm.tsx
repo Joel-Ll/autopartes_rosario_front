@@ -33,8 +33,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { loginFormSchema } from '@/types/auth/auth.types';
 import { authenticateAction } from '@/actions/auth/authenticate.action';
 import ErrorMessage from '../utils/error-message';
+import { useSidebarStore } from '@/store/sidebar.store';
 
 export default function LoginForm() {
+  const { handleItemClick } = useSidebarStore();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const form = useForm<z.infer<typeof loginFormSchema>>({
@@ -55,7 +57,8 @@ export default function LoginForm() {
       }, 3000);
     },
     onSuccess: () => {
-      navigate('/');
+      handleItemClick('Inicio');
+      navigate('/home');
     }
   });
 
@@ -67,11 +70,25 @@ export default function LoginForm() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Iniciar Sesión</CardTitle>
-          <CardDescription>
-            Ingrese el nombre de usuario y la contraseña
-          </CardDescription>
+          <div className="flex justify-center">
+            <img
+              src="/logo2.png"
+              alt="Lubricantes y Autopartes Rosario"
+              className="h-40 w-auto object-contain"
+            />
+          </div>
+
+          <div className="text-center">
+            <CardTitle className="text-2xl">
+              Iniciar Sesión
+            </CardTitle>
+
+            <CardDescription>
+              Ingrese su usuario y contraseña para acceder al sistema.
+            </CardDescription>
+          </div>
         </CardHeader>
+
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -144,7 +161,7 @@ export default function LoginForm() {
                 }
 
                 <Field>
-                  <Button type="submit" disabled={isPending}>Ingresar</Button>
+                  <Button className='cursor-pointer' type="submit" disabled={isPending}>Ingresar</Button>
                 </Field>
                 {error && <ErrorMessage>{error}</ErrorMessage>}
               </FieldGroup>

@@ -1,8 +1,13 @@
-import { CalendarIcon, FileText, Minus, ShoppingCart, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { purchaseFormSchema, type ProductCatalog, type ProductItem, type Purchase, type PurchaseFormValues } from '@/types/purchases/purchases-type';
+import { useSelectSupplier } from '@/hooks/useSupplier';
+
+
+import { CalendarIcon, Minus, Package, ShoppingCart, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -11,26 +16,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Field, FieldError, FieldLabel } from '../ui/field';
-import { useSelectSupplier } from '@/hooks/useSupplier';
-import type { SupplierActive } from '@/types/suppliers/suppliers.type';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { format } from 'date-fns';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { TableHeader, TableRow, TableHead, TableBody, TableCell, TableFooter, Table } from '@/components/ui/table';
+
+import { purchaseFormSchema, type ProductCatalog, type ProductItem, type Purchase, type PurchaseFormValues } from '@/types/purchases/purchases-type';
+import type { SupplierSelect } from '@/types/suppliers/suppliers.type';
 import { cn } from '@/lib/utils';
-import { Calendar } from '../ui/calendar';
-import { useState } from 'react';
 import { toast } from "sonner";
-import { TableHeader, TableRow, TableHead, TableBody, TableCell, TableFooter, Table } from '../ui/table';
-import { Badge } from '../ui/badge';
-import { useNavigate, useParams } from 'react-router';
 import type z from 'zod';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProductsItemAction } from '@/actions/purchases/get-products-item.action';
 import { removeItems } from '@/actions/purchases/remove-items.action';
 import { editPurchaseAction } from '@/actions/purchases/edit-purchase.action';
-import { SearchableSelect } from '../ui/searchable-select';
+import { formatDate } from '@/utils';
 
 interface Props {
   data: Purchase
@@ -40,8 +42,9 @@ export const EditPurchaseForm = ({ data }: Props) => {
   const params = useParams();
   const purchaseId = params.purchaseId!;
   const navigate = useNavigate();
-  const { data: suppliersActive } = useSelectSupplier();
+  const { data: suppliersSelect } = useSelectSupplier();
   const [searchOpen, setSearchOpen] = useState(false);
+  const suppliersActive = suppliersSelect?.filter(supp => supp.isActive) || [];
 
   const transformedData = {
     supplier: data.supplier._id,
@@ -50,7 +53,9 @@ export const EditPurchaseForm = ({ data }: Props) => {
     detail: data.detail,
     items: data.products.map(product => ({
       _id: product.productId,
-      code: product.code,
+      image: product.image,
+      internalCode: product.internalCode,
+      catalogCode: product.catalogCode,
       description: product.description,
       brand: product.brand,
       purchasePrice: product.purchasePrice,
@@ -82,15 +87,15 @@ export const EditPurchaseForm = ({ data }: Props) => {
     defaultValues: transformedData
   });
 
+  const items = form.watch("items");
+
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
   });
 
   const handleAddProduct = (product: ProductCatalog) => {
-    const currentItems = form.getValues("items");
-
-    const exists = currentItems.find((i) => i._id === product._id);
+    const exists = items.find((i) => i._id === product._id);
     if (exists) {
       toast.error("El producto ya fue agregado");
       return;
@@ -152,356 +157,361 @@ export const EditPurchaseForm = ({ data }: Props) => {
   }
 
   return (
-    <div className="space-y-6 my-5">
-      <form onSubmit={form.handleSubmit(onSubmit)} id="form-rhf-demo" >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <FileText className="h-5 w-5 text-primary" />
-              Datos de la Compra
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Proveedor */}
-              <Controller
-                name='supplier'
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    data-invalid={fieldState.invalid}
+    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
+      <Card>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Proveedor */}
+            <Controller
+              name='supplier'
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field
+                  data-invalid={fieldState.invalid}
+                >
+                  <FieldLabel>Proveedor *</FieldLabel>
+                  <Select
+                    name={field.name}
+                    value={field.value}
+                    onValueChange={field.onChange}
                   >
-                    {/* <FieldContent> */}
-                    <FieldLabel>Proveedor *</FieldLabel>
-                    {/* </FieldContent> */}
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
+                    <SelectTrigger
+                      id="form-rhf-select-language"
+                      aria-invalid={fieldState.invalid}
+                      className="min-w-[120px]"
                     >
-                      <SelectTrigger
-                        id="form-rhf-select-language"
-                        aria-invalid={fieldState.invalid}
-                        className="min-w-[120px]"
-                      >
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent position="item-aligned">
-                        {suppliersActive && suppliersActive.length > 0 ? (
-                          <>
-                            {suppliersActive.map((item: SupplierActive) => (
-                              <SelectItem key={item._id} value={item._id} >
-                                {item.enterprise}
-                              </SelectItem>
-                            ))}
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem disabled value="no-data">
-                              No hay registros
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent position="item-aligned">
+                      {suppliersActive && suppliersActive.length > 0 ? (
+                        <>
+                          {suppliersActive.map((item: SupplierSelect) => (
+                            <SelectItem key={item._id} value={item._id} >
+                              {item.enterprise}
                             </SelectItem>
-                          </>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem disabled value="no-data">
+                            No hay registros
+                          </SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {/* Nro Factura / Lote */}
+            <Controller
+              name="invoiceNumber"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Nro. Factura / Lote *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Ej: FAC-00123"
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {/* Date */}
+            <Controller
+              name="date"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Fecha *</FieldLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        aria-invalid={fieldState.invalid}
+                        variant="outline"
+                        className={cn(
+                          "w-[280px] justify-start text-left font-normal",
+                          !field.value && "text-muted-foreground"
                         )}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? formatDate(new Date(field.value)) : <span>Seleccione una fecha</span>}
+                      </Button>
+                    </PopoverTrigger>
 
-              {/* Nro Factura / Lote */}
-              <Controller
-                name="invoiceNumber"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Nro. Factura / Lote *</FieldLabel>
-                    <Input
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Ej: FAC-00123"
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => field.onChange(date)}
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-              {/* Date */}
-              <Controller
-                name="date"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Fecha *</FieldLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          aria-invalid={fieldState.invalid}
-                          variant="outline"
-                          className={cn(
-                            "w-[280px] justify-start text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? format(new Date(field.value), "PPP") : <span>Seleccione una fecha</span>}
-                        </Button>
-                      </PopoverTrigger>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
 
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={(date) => field.onChange(date)}
-                        />
-                      </PopoverContent>
-                    </Popover>
+            {/* Notas */}
+            <Controller
+              name="detail"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Detalle / Observación</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Nota adicional..."
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
 
-              {/* Notas */}
-              <Controller
-                name="detail"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Detalle / Observación</FieldLabel>
-                    <Input
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Nota adicional..."
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
+      <Card className='mt-5'>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              Detalle de Productos
+            </CardTitle>
+
+            <SearchableSelect
+              label='Agregar Producto'
+              searchOpen={searchOpen}
+              setSearchOpen={setSearchOpen}
+              catalogProducts={catalogProducts}
+              handleAddProduct={handleAddProduct}
+            />
+
+          </div>
+        </CardHeader>
+        <CardContent>
+          {items.length === 0 ? (
+            <div className="text-center py-16 border-2 border-dashed rounded-lg">
+              <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground font-medium">No hay productos agregados</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">
+                Use el botón "Agregar Producto" para buscar y seleccionar
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-
-        <Card className='mt-5'>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <ShoppingCart className="h-5 w-5 text-primary" />
-                Detalle de Productos
-              </CardTitle>
-
-              <SearchableSelect
-                label='Agregar Producto'
-                searchOpen={searchOpen}
-                setSearchOpen={setSearchOpen}
-                catalogProducts={catalogProducts}
-                handleAddProduct={handleAddProduct}
-              />
-
-            </div>
-          </CardHeader>
-          <CardContent>
-            {form.getValues('items').length === 0 ? (
-              <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-muted-foreground font-medium">No hay productos agregados</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">
-                  Use el botón "Agregar Producto" para buscar y seleccionar
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Producto</TableHead>
-                      <TableHead className="w-28 text-center">Cantidad</TableHead>
-                      <TableHead className="w-36 text-center">P. Compra</TableHead>
-                      <TableHead className="w-36 text-center">P. Venta</TableHead>
-                      <TableHead className="w-32 text-right">Subtotal</TableHead>
-                      <TableHead className="w-16"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {form.getValues('items').map((item, index) => (
-                      <TableRow key={item._id}>
-                        <TableCell className="text-muted-foreground font-mono text-xs py-8">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-sm leading-tight">{item.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {item.code}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                {item.brand}
-                              </Badge>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Producto</TableHead>
+                    <TableHead className="w-28 text-center">Cantidad</TableHead>
+                    <TableHead className="w-36 text-center">P. Compra</TableHead>
+                    <TableHead className="w-36 text-center">P. Venta</TableHead>
+                    <TableHead className="w-32 text-right">Subtotal</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => (
+                    <TableRow key={item._id}>
+                      <TableCell className="text-muted-foreground font-mono text-xs py-8">
+                        {index + 1}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 w-[300px]">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt='imagen producto'
+                              className="h-15 w-15 rounded object-cover shrink-0"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-15 w-15 rounded bg-muted flex items-center justify-center shrink-0">
+                              <Package className="h-5 w-5 text-muted-foreground" />
                             </div>
+                          )}
+
+                          <div className="min-w-0 flex-1 flex flex-col gap-1">
+                            <p
+                              className="font-medium text-sm leading-tight truncate"
+                              title={item.description}
+                            >
+                              {item.description}
+                            </p>
+
+                            <p className="text-sm text-muted-foreground truncate">
+                              #{item.internalCode} - {item.catalogCode === '' ? 's/n' : item.catalogCode}
+                            </p>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(e) =>
-                              handleUpdateItem(index, "quantity", Number(e.target.value))
-                            }
-                            className="text-center h-9"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  value={item.purchasePrice || 0}
-                                  onChange={(e) =>
-                                    handleUpdateItem(index, "purchasePrice", Number(e.target.value))
-                                  }
-                                  className="text-center h-9"
-                                />
-                              </TooltipTrigger>
-                              {item.purchasePrice != null && (() => {
-                                const originalProduct = catalogProducts?.find(p => p._id === item._id);
-
-                                if (!originalProduct || originalProduct.purchasePrice === undefined) return null;
-
-                                const info = getPriceDiff(item.purchasePrice, originalProduct.purchasePrice);
-
-                                return (
-                                  <TooltipContent>
-                                    <div className="flex items-center gap-1.5 text-xs">
-                                      <span>Anterior: ${originalProduct.purchasePrice.toFixed(2)}</span>
-                                      {info && info.type === "up" && (
-                                        <span className="text-emerald-400 flex items-center gap-0.5">
-                                          <TrendingUp className="h-3 w-3" /> +{info.diff.toFixed(1)}%
-                                        </span>
-                                      )}
-                                      {info && info.type === "down" && (
-                                        <span className="text-red-400 flex items-center gap-0.5">
-                                          <TrendingDown className="h-3 w-3" /> {info.diff.toFixed(1)}%
-                                        </span>
-                                      )}
-                                      {info && info.type === "equal" && (
-                                        <span className="flex items-center gap-0.5">
-                                          <Minus className="h-3 w-3" /> 0%
-                                        </span>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                );
-                              })()}
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  value={item.salePrice}
-                                  onChange={(e) =>
-                                    handleUpdateItem(index, "salePrice", Number(e.target.value))
-                                  }
-                                  className="text-center h-9"
-                                />
-                              </TooltipTrigger>
-
-                              {item.salePrice != null && (() => {
-                                // Buscar el producto original en el catálogo usando el _id del item
-                                const originalProduct = catalogProducts?.find(p => p._id === item._id);
-
-                                if (!originalProduct || originalProduct.salePrice === undefined) return null;
-
-                                const info = getPriceDiff(item.salePrice, originalProduct.salePrice);
-
-                                return (
-                                  <TooltipContent>
-                                    <div className="flex items-center gap-1.5 text-xs">
-                                      <span>Anterior: ${originalProduct.salePrice.toFixed(2)}</span>
-                                      {info && info.type === "up" && (
-                                        <span className="text-emerald-400 flex items-center gap-0.5">
-                                          <TrendingUp className="h-3 w-3" /> +{info.diff.toFixed(1)}%
-                                        </span>
-                                      )}
-                                      {info && info.type === "down" && (
-                                        <span className="text-red-400 flex items-center gap-0.5">
-                                          <TrendingDown className="h-3 w-3" /> {info.diff.toFixed(1)}%
-                                        </span>
-                                      )}
-                                      {info && info.type === "equal" && (
-                                        <span className="flex items-center gap-0.5">
-                                          <Minus className="h-3 w-3" /> 0%
-                                        </span>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                );
-                              })()}
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          ${getSubtotal(item).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveItem(index, item._id)}
-                            className="h-8 w-8"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-right font-semibold text-base">
-                        Total:
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right font-bold text-lg text-primary tabular-nums">
-                        ${getTotal(form.getValues('items')).toFixed(2)}
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(e) =>
+                            handleUpdateItem(index, "quantity", Number(e.target.value))
+                          }
+                          className="text-center h-9"
+                        />
                       </TableCell>
-                      <TableCell />
+                      <TableCell>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={item.purchasePrice || 0}
+                                onChange={(e) =>
+                                  handleUpdateItem(index, "purchasePrice", Number(e.target.value))
+                                }
+                                className="text-center h-9"
+                              />
+                            </TooltipTrigger>
+                            {item.purchasePrice != null && (() => {
+                              const originalProduct = catalogProducts?.find(p => p._id === item._id);
+
+                              if (!originalProduct || originalProduct.purchasePrice === undefined) return null;
+
+                              const info = getPriceDiff(item.purchasePrice, originalProduct.purchasePrice);
+
+                              return (
+                                <TooltipContent>
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <span>Anterior: Bs. {originalProduct.purchasePrice.toFixed(2)}</span>
+                                    {info && info.type === "up" && (
+                                      <span className="text-emerald-400 flex items-center gap-0.5">
+                                        <TrendingUp className="h-3 w-3" /> +{info.diff.toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {info && info.type === "down" && (
+                                      <span className="text-red-400 flex items-center gap-0.5">
+                                        <TrendingDown className="h-3 w-3" /> {info.diff.toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {info && info.type === "equal" && (
+                                      <span className="flex items-center gap-0.5">
+                                        <Minus className="h-3 w-3" /> 0%
+                                      </span>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              );
+                            })()}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={item.salePrice}
+                                onChange={(e) =>
+                                  handleUpdateItem(index, "salePrice", Number(e.target.value))
+                                }
+                                className="text-center h-9"
+                              />
+                            </TooltipTrigger>
+
+                            {item.salePrice != null && (() => {
+                              // Buscar el producto original en el catálogo usando el _id del item
+                              const originalProduct = catalogProducts?.find(p => p._id === item._id);
+
+                              if (!originalProduct || originalProduct.salePrice === undefined) return null;
+
+                              const info = getPriceDiff(item.salePrice, originalProduct.salePrice);
+
+                              return (
+                                <TooltipContent>
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <span>Anterior: Bs. {originalProduct.salePrice.toFixed(2)}</span>
+                                    {info && info.type === "up" && (
+                                      <span className="text-emerald-400 flex items-center gap-0.5">
+                                        <TrendingUp className="h-3 w-3" /> +{info.diff.toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {info && info.type === "down" && (
+                                      <span className="text-red-400 flex items-center gap-0.5">
+                                        <TrendingDown className="h-3 w-3" /> {info.diff.toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {info && info.type === "equal" && (
+                                      <span className="flex items-center gap-0.5">
+                                        <Minus className="h-3 w-3" /> 0%
+                                      </span>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              );
+                            })()}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        Bs. {getSubtotal(item).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveItem(index, item._id)}
+                          className="h-8 w-8"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableFooter>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-right font-semibold text-base">
+                      Total:
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-lg text-primary tabular-nums">
+                      Bs. {getTotal(items).toLocaleString()}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <div className="flex gap-4 justify-end mt-5">
-          <Field orientation="horizontal">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="form-rhf-demo" disabled={!form.getValues('items').length}>
-              Aceptar
-            </Button>
-          </Field>
-        </div>
-      </form>
-    </div>
+      <div className="flex gap-4 justify-end mt-5">
+        <Field orientation="horizontal">
+          <Button type="button" variant="outline" onClick={handleClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={!items.length}>
+            Aceptar
+          </Button>
+        </Field>
+      </div>
+    </form>
   )
 }

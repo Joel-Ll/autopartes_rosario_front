@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router';
 import { useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { AppSidebar } from '@/components/AppSidebar';
 import {
@@ -11,11 +12,11 @@ import { Header } from '@/components/Header';
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const handleClose = () => {
     localStorage.removeItem('AUTH_TOKEN')
-    // TODO: Invalidar la obtencion del usuario
-    // queryClient.invalidateQueries({queryKey: ['']});
-    navigate('/auth/login');
+    queryClient.removeQueries({ queryKey: ['userAuth'] });
+    navigate('/auth/login', { replace: true });
   }
 
   return (
@@ -27,7 +28,7 @@ export default function AppLayout() {
             handleClose={handleClose}
           />
 
-          <main className="container mx-auto px-4 py-8 space-y-8">
+          <main className="container mx-auto px-4 py-8 space-y-4">
             <Outlet />
           </main>
 

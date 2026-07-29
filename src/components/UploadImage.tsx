@@ -5,9 +5,9 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import { Upload, X } from 'lucide-react';
 
-import { Spinner } from './ui/spinner';
-import { Button } from './ui/button';
-import { FormLabel } from './ui/form';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form';
 import type { ProductFormValues } from '@/types/products/products.type';
 import { deleteImageAction } from '@/actions/products/delete-image.action';
 import { uploadImageAction } from '@/actions/products/upload-image.action';

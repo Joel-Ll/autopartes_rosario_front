@@ -7,7 +7,6 @@ export const getAdjustmentsAction = async () => {
     const url = '/adjustments';
     const { data } = await api.get(url);
     const result = adjustmentsSchema.safeParse(data);
-    console.log(result);
     if (result.success)
       return result.data;
   } catch (error) {

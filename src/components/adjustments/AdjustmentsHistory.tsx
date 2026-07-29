@@ -1,5 +1,5 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye} from "lucide-react";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,18 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Eye } from "lucide-react";
 import type { Adjustment } from '@/types/adjustments/adjustments.type';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { useState } from 'react';
 import { DetailAdjustment } from './DetailAdjustment';
+import { formatDate } from "@/utils";
 
 interface Props {
   data: Adjustment[]
@@ -67,27 +59,28 @@ export const AdjustmentsHistory = ({ data }: Props) => {
               ) : (
                 data.map((adj) => (
                   <TableRow key={adj._id}>
-                    <TableCell className="text-sm">{adj.createdAt}</TableCell>
+                    <TableCell className="text-sm">{formatDate(new Date(adj.createdAt))}</TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium text-sm">{adj.product.description}</p>
-                        <p className="text-xs text-muted-foreground">{adj.product.code}</p>
+                        <p className="text-xs text-muted-foreground">#{adj.product.internalCode} • {adj.product.catalogCode}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          adj.adjustmentType === "increment"
-                            ? "border-emerald-500 text-emerald-600 bg-emerald-50"
-                            : "border-red-500 text-red-600 bg-red-50"
-                        }
-                      >
-                        {adj.adjustmentType === "increment" ? "Incremento" : "Reducción"}
-                      </Badge>
+                      <>
+                        {adj.adjustmentType === 'increment' ? (
+                          <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                            Incremento
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300">
+                            Reducción
+                          </Badge>
+                        )}
+                      </>
                     </TableCell>
                     <TableCell className="text-center font-semibold">
-                      <span className={adj.adjustmentType === "increment" ? "text-emerald-600" : "text-red-600"}>
+                      <span className={adj.adjustmentType === "increment" ? "text-sky-600" : "text-red-600"}>
                         {adj.adjustmentType === "increment" ? "+" : "-"}{adj.quantity}
                       </span>
                     </TableCell>
@@ -101,45 +94,18 @@ export const AdjustmentsHistory = ({ data }: Props) => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={ () => handleView(adj._id)}
+                        onClick={() => handleView(adj._id)}
                       >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
-            ))
+                ))
               )}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <CardFooter>
-        {/* Hacer funcionar la paginacion */}
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious href="#" />
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink href="#">1</PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink href="#" isActive>
-                2
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink href="#">3</PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationEllipsis />
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationNext href="#" />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </CardFooter>
-    </Card >
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card >
 
       <DetailAdjustment
         openView={openView}

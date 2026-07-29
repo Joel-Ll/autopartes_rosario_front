@@ -1,197 +1,170 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { ColumnDef } from "@tanstack/react-table"
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle, Edit2, Eye, MoreHorizontal, TrendingDown, XCircle } from 'lucide-react'
-import { formatDate } from '@/utils'
 
+import { CheckCircle, Edit2, Eye, MoreHorizontal, Package, Tag, Truck, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
-import { Button } from '../ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 import type { Product } from '@/types/products/products.type'
-import DeleteProduct from './DeleteProduct'
-import DetailProduct from './DetailProduct'
-import { updateStateProductAction } from '@/actions/products/update-state-product.action'
-import { toast } from 'sonner'
-
+import CardProduct from './CardProduct'
+import { ChangeState } from './ChangeState'
+import { getThumbnailUrl } from '@/utils'
 
 export const columns: ColumnDef<Product>[] = [
-  // {
-  //   id: "isActive",
-  //   accessorKey: "isActive",
-  //   header: "Estado",
-  //   cell: ({ row }) => {
-  //     const isActive = row.original.isActive
-
-  //     return (
-  //       <div className="flex items-center gap-1 text-xs font-medium">
-  //         <span
-  //           className={`h-2 w-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-gray-400"
-  //             }`}
-  //         />
-  //         {isActive ? "Activo" : "Inactivo"}
-  //       </div>
-  //     )
-  //   }
-  // },
+  // Imagen
   {
-    id: 'Código',
-    accessorKey: "code",
-    header: "Código"
-  },
-  {
-    id: "Imagen",
-    accessorKey: "image",
-    header: "Imagen",
+    accessorKey: "internalCode",
+    header: "# Producto",
+    size: 300,
     cell: ({ row }) => {
-      const imageUrl = row.original.image as string
-      const getThumbnailUrl = (url: string) => {
-        if (!url.includes('cloudinary')) return url;
-        return url.replace('/upload/', '/upload/w_100,h_100,c_fill/');
-      };
+      const [openView, setOpenView] = useState(false);
+      const imageUrl = row.original.image as string;
 
       return (
-        <div className="flex justify-start">
-          {imageUrl ? (
-            <img
-              src={getThumbnailUrl(imageUrl)}
-              alt="Imagen del producto"
-              className="h-12 w-12 object-cover rounded-md border"
-              loading="lazy"
-            />
-          ) : (
-            <div className="h-14 w-14 bg-muted rounded-lg flex items-center justify-center border border-dashed">
-              <span className='text-xs'>sin imagen</span>
+        <>
+          <div className="flex items-center gap-2 w-[300px]">
+            {imageUrl ? (
+              <img
+                src={getThumbnailUrl(imageUrl)}
+                alt={row.original.description}
+                className="h-15 w-15 rounded object-cover shrink-0"
+                loading="lazy"
+              />
+            ) : (
+              <div className="h-15 w-15 rounded bg-muted flex items-center justify-center shrink-0">
+                <Package className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1 flex flex-col gap-1">
+              <p
+                onClick={() => setOpenView(true)}
+                className="font-medium text-sm leading-tight truncate cursor-pointer"
+                title={row.original.description}
+              >
+                {row.original.description}
+              </p>
+
+              <p className="text-sm text-muted-foreground truncate">
+                #{row.original.internalCode} • {row.original.catalogCode === '' ? 's/n' : row.original.catalogCode}
+              </p>
             </div>
+          </div>
+
+          <CardProduct
+            product={row.original}
+            openView={openView}
+            setOpenView={setOpenView}
+          />
+        </>
+      );
+    },
+  },
+  // Marca
+  {
+    accessorKey: "brand",
+    header: "Marca",
+    cell: ({ row }) => (
+      <Badge variant="outline" className="text-xs">
+        <Tag className="h-3 w-3 mr-1" />{row.original.brand}
+      </Badge>
+    )
+  },
+  // Ubicacion
+  {
+    accessorKey: "location",
+    header: "Ubicación",
+    cell: ({ row }) => {
+      return (
+        <div className="text-muted-foreground text-md">{row.original.location === '' ? 's/n' : row.original.location}</div>
+      )
+    },
+  },
+
+  // Categoria
+  {
+    accessorKey: "category",
+    header: "Categoría",
+    cell: ({ row }) => {
+      return (
+        <Badge variant={'secondary'}>{row.original.category.name}</Badge>
+      )
+    },
+    filterFn: (row, _, filterValue) => {
+      const categoryId = row.original.category._id;
+      return categoryId === filterValue;
+    },
+  },
+  // Proveedor
+  {
+    accessorKey: "supplier",
+    header: "Proveedor",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1 text-sm">
+        <Truck className="h-3 w-3 text-muted-foreground" />
+        {row.original.supplier.enterprise}
+      </div>
+    )
+  },
+
+  // Stock
+  {
+    accessorKey: "currentStock",
+    header: () => <div className='text-center'>Stock</div>,
+    cell: ({ row }) => {
+      const { currentStock, minStock } = row.original;
+      return (
+        <div className='text-center'>
+          <Badge variant={
+            currentStock === 0 ? "destructive" :
+              currentStock <= minStock ? "secondary" : "default"
+          }>
+            {currentStock}
+          </Badge>
+        </div>
+      )
+    }
+  },
+  // P. Venta
+  {
+    accessorKey: "salePrice",
+    header: () => <div className='text-right'>P. Venta</div>,
+    cell: ({ row }) => (
+      <div className="text-right font-semibold">
+        Bs {row.original.salePrice.toLocaleString()}
+      </div>
+    )
+  },
+  // Estado
+  {
+    accessorKey: "isActive",
+    header: () => <div className='text-center'>Estado</div>,
+    cell: ({ row }) => {
+      const isActive = row.original.isActive
+
+      return (
+        <div className='text-center'>
+          {isActive ? (
+            <Badge className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+              Activo
+            </Badge>
+          ) : (
+            <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300">
+              Inactivo
+            </Badge>
           )}
         </div>
       )
     }
   },
-  {
-    id: 'Descripción',
-    accessorKey: "description",
-    header: "Descripción"
-  },
-  {
-    id: 'Categoría',
-    accessorKey: "category.name",
-    header: "Categoría",
-    cell: ({ row }) => {
-      return (
-        <div className='uppercase'>{row.original.category?.name}</div>
-      )
-    }
-  },
-  {
-    id: 'Marca',
-    accessorKey: "brand",
-    header: "Marca"
-  },
-  {
-    id: 'Proveedor',
-    accessorKey: "supplier.enterprise",
-    header: "Proveedor",
-    cell: ({ row }) => row.original.supplier?.enterprise
-  },
-  {
-    id: 'Unidad de Medida',
-    accessorKey: "unidadMedidaAbr",
-    header: "Unidad"
-  },
-  {
-    id: "currentStock",
-    accessorKey: "currentStock",
-    header: "Stock",
-    cell: ({ row }) => {
-
-      const { currentStock, minStock } = row.original
-
-      let variant: "available" | "secondary" | "warning" | "destructive" = "available"
-      let label = <CheckCircle />
-
-      if (currentStock <= minStock) {
-        variant = "destructive"
-        label = <AlertTriangle />
-      } else if (currentStock <= minStock * 2) {
-        variant = "warning"
-        label = <TrendingDown />
-      }
-
-      return (
-        <div className="flex items-center gap-2">
-          <Badge variant={variant}>
-            {currentStock} / {minStock}
-          </Badge>
-          <span className="text-muted-foreground text-xs">
-            {label}
-          </span>
-        </div>
-      )
-    }
-  },
-  {
-    id: 'Precio',
-    accessorKey: "purchasePrice",
-    header: "Precio",
-    cell: ({ row }) => `Bs ${row.original.purchasePrice}`
-  },
-  {
-    id: 'Costo',
-    accessorKey: "salePrice",
-    header: "Costo",
-    cell: ({ row }) => `Bs ${row.original.salePrice}`
-  },
-  {
-    id: 'Fecha de Registro',
-    accessorKey: "createdAt",
-    header: "Fecha de Registro",
-    cell: ({ row }) => {
-      const date = formatDate(new Date(row.original.createdAt));
-      return (
-        <div className="text-sm">
-          {date}
-        </div>
-      )
-    }
-  },
-  {
-    id: "isActive",
-    accessorKey: "isActive",
-    header: "Estado",
-    cell: ({ row }) => {
-      const isActive = row.original.isActive
-
-      return (
-        <Badge variant={'outline'} className={
-          isActive
-            ? "border-emerald-500 text-emerald-600 bg-emerald-50"
-            : "border-red-500 text-red-600 bg-red-50"
-        }>
-          {isActive ? "Activo" : "Inactivo"}
-        </Badge>
-      )
-    }
-  },
+  // Acciones
   {
     id: "Acciones",
     cell: ({ row }) => {
-      const product = row.original;
       const navigate = useNavigate();
       const productId = row.original._id
-      const [openDelete, setOpenDelete] = useState(false);
-      const [openView, setOpenView] = useState(false);
-      const queryClient = useQueryClient();
-
-      const { mutate } = useMutation({
-        mutationFn: updateStateProductAction,
-        onError: (error: TypeError) => {
-          toast.error(error.message);
-        },
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['products'] });
-        }
-      })
+      const [openChange, setOpenChange] = useState(false);
 
       return (
         <>
@@ -203,12 +176,17 @@ export const columns: ColumnDef<Product>[] = [
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/products/detail/${productId}`)} >
+                <Eye />
+                Ver
+              </DropdownMenuItem>
+
               <DropdownMenuItem onClick={() => navigate(`/products/edit/${productId}`)} >
                 <Edit2 />
                 Editar
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => mutate(productId)}>
+              <DropdownMenuItem variant={row.original.isActive === true ? 'destructive' : 'default'} onClick={() => setOpenChange(true)}>
                 {row.original.isActive === true ? (
                   <>
                     <XCircle />
@@ -221,23 +199,16 @@ export const columns: ColumnDef<Product>[] = [
                   </>
                 )}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/products/add-stock/${productId}`)} >
-                <Eye />
-                Ver detalles
-              </DropdownMenuItem>
+
+
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DeleteProduct
+          <ChangeState
+            openChange={openChange}
+            setOpenChange={setOpenChange}
             productId={productId}
-            openDelete={openDelete}
-            setOpenDelete={setOpenDelete}
-          />
-
-          <DetailProduct
-            product={product}
-            openView={openView}
-            setOpenView={setOpenView}
+            state={row.original.isActive}
           />
         </>
       )

@@ -1,12 +1,12 @@
 import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
-import { purchasesSchema } from '@/types/purchases/purchases-type';
+import { purchasesResponse } from '@/types/purchases/purchases-type';
 
 export const getPurchasesAction = async () => {
   try {
     const url = '/purchases';
     const { data } = await api.get(url);
-    const result = purchasesSchema.safeParse(data);
+    const result = purchasesResponse.safeParse(data);
     if (result.success)
       return result.data;
   } catch (error) {

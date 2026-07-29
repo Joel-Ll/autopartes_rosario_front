@@ -9,7 +9,9 @@ import 'aos/dist/aos.css';
 
 import './index.css'
 import router from './router'
-AOS.init();
+AOS.init({
+  startEvent: 'DOMContentLoaded', 
+});
 
 const queryClient = new QueryClient();
 createRoot(document.getElementById('root')!).render(

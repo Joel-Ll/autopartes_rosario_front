@@ -1,9 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from 'react';
-import { SelectProducts } from './SelectProducts';
-import { Button } from '../ui/button';
-import { ArrowUpDown, Minus, Plus } from 'lucide-react';
-import { Input } from '../ui/input';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
 import {
   Select,
   SelectContent,
@@ -11,33 +20,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from '../ui/textarea';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProductsAction } from '@/actions/products/get-products.action';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { adjustmentsFormSchema, type AdjustmentsFormValues } from '@/types/adjustments/adjustments.type';
-import { Field, FieldError, FieldLabel } from '../ui/field';
-import { Controller, useForm } from 'react-hook-form';
-import type z from 'zod';
-import { createAdjustementAction } from '@/actions/adjustments/create-adjustment.action';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { toast } from 'sonner';
+import type z from 'zod';
+import { ArrowUpDown, Minus, Plus } from 'lucide-react';
+import { adjustmentsFormSchema, type AdjustmentsFormValues } from '@/types/adjustments/adjustments.type';
+import { createAdjustementAction } from '@/actions/adjustments/create-adjustment.action';
+import { getProductsAction } from '@/actions/products/get-products.action';
+import { SelectProducts } from './SelectProducts';
 
 
-
-const reasons = [
+const decreaseReasons = [
   { label: "Producto dañado", id: 1 },
-  { label: "Producto vencido", id: 2 },
-  { label: "Pérdida / Extravío", id: 3 },
-  { label: "Corrección de inventario", id: 4 },
-  { label: "Devolución a proveedor", id: 5 },
-  { label: "Devolución de cliente", id: 6 },
-  { label: "Donación", id: 7 },
-  { label: "Inventario inicial", id: 8 },
-  { label: "Otro", id: 9 },
+  { label: "Pérdida / Extravío", id: 2 },
+  { label: "Corrección de inventario", id: 3 },
+  { label: "Devolución a proveedor", id: 4 },
+  { label: "Donación", id: 5 },
+  { label: "Consumo interno", id: 6 },
+  { label: "Otro", id: 7 },
+];
+
+const increaseReasons = [
+  { label: "Corrección de inventario", id: 1 },
+  { label: "Devolución de cliente", id: 2 },
+  { label: "Ajuste por sobrante", id: 3 },
+  { label: "Inventario inicial", id: 4 },
+  { label: "Otro", id: 5 },
 ];
 
 export const AdjustmentsForm = () => {
-
   const form = useForm<AdjustmentsFormValues>({
     resolver: zodResolver(adjustmentsFormSchema),
     defaultValues: {
@@ -48,14 +59,14 @@ export const AdjustmentsForm = () => {
       note: ''
     },
   });
+  const adjustmentType = form.watch('adjustmentType');
 
   // Traer productos;
-  const { data = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ['products'],
     queryFn: getProductsAction,
     retry: false
-  });
-
+  })
 
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
@@ -71,15 +82,21 @@ export const AdjustmentsForm = () => {
     }
   })
 
-  const [currentStock, setCurrentStock] = useState<number>();
   const watchedQuantity = form.watch('quantity');
 
-
-  const productOptions = data.map((p) => ({
+  const productOptions = data?.products.map((p) => ({
     value: p._id,
-    label: `${p.code} - ${p.description}`,
-    stock: p.currentStock
+    internalCode: p.internalCode ?? '',
+    catalogCode: p.catalogCode ?? '',
+    description: p.description,
+    image: p.image ?? '',
+    stock: p.currentStock,
   }));
+
+  const selectedProduct = productOptions?.find(
+    (p) => p.value === form.watch('product')
+  );
+  const currentStock = selectedProduct?.stock;
 
   function onSubmit(data: z.infer<typeof adjustmentsFormSchema>) {
     mutate(data);
@@ -89,10 +106,11 @@ export const AdjustmentsForm = () => {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">Nuevo Ajuste de Stock</CardTitle>
+        <CardDescription>Registra entradas y salidas de inventario con justificación documentada</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} id="form-rhf-demo" >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Producto */}
             <Controller
               name="product"
@@ -100,6 +118,7 @@ export const AdjustmentsForm = () => {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor={field.name}>Producto *</FieldLabel>
+
                   <SelectProducts
                     value={field.value}
                     onValueChange={field.onChange}
@@ -107,8 +126,6 @@ export const AdjustmentsForm = () => {
                     placeholder="Seleccionar producto..."
                     searchPlaceholder="Buscar por código o descripción..."
                     emptyMessage="No se encontró el producto"
-                    currentStock={currentStock}
-                    setCurrentStock={setCurrentStock}
                   />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
@@ -200,14 +217,23 @@ export const AdjustmentsForm = () => {
                       <SelectValue placeholder="Seleccione" />
                     </SelectTrigger>
                     <SelectContent position="item-aligned">
-                      {reasons && (
+                      {adjustmentType === 'decrement' ? (
                         <>
-                          {reasons.map((item) => (
+                          {decreaseReasons.map((item) => (
                             <SelectItem key={item.id} value={item.label} >
                               {item.label}
                             </SelectItem>
                           ))}
                         </>
+                      ) : (
+                        <>
+                          {increaseReasons.map((item) => (
+                            <SelectItem key={item.id} value={item.label} >
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </>
+
                       )}
                     </SelectContent>
                   </Select>

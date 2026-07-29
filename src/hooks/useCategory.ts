@@ -3,7 +3,7 @@ import { getCategoriesActiveAction } from '@/actions/categories/get-categories-a
 
 export const useSelectCategory = () => {
   const { data } = useQuery({
-    queryKey: ['categories-active'],
+    queryKey: ['categories-select'],
     queryFn: getCategoriesActiveAction,
     retry: false,
   });

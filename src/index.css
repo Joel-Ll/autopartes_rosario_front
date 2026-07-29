@@ -66,9 +66,9 @@
   --ring: oklch(0.279 0.0741 151.328 / 1);
   --chart-1: oklch(0.728 0.12918 215.86 / 1);
   --chart-2: oklch(0.726 0.185477 0 / 1);
-  --chart-3: oklch(0.85 0.148745 87.53 / 1);
-  --chart-4: oklch(0.852 0.199 91.936);
-  --chart-5: oklch(0.685 0.169 237.323);
+  --chart-3: oklch(82.8% 0.189 84.429);
+  --chart-4: oklch(59.2% 0.249 0.584);
+  --chart-5: oklch(58.8% 0.158 241.966);
   --sidebar: oklch(0.379 0.079773 234.44 / 1);
   --sidebar-foreground: oklch(1 0 0 / 1);
   --sidebar-primary: oklch(1 0 0 / 0.85);
@@ -87,5 +87,22 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print\:block, .print\:block * {
+    visibility: visible;
+  }
+
+  .print\:block {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
 }
