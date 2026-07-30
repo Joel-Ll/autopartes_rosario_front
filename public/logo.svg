@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+
+  <!-- Engranaje -->
+  <g fill="#1D4ED8">
+
+    <!-- dientes -->
+    <rect x="29" y="2" width="6" height="8" rx="2"/>
+    <rect x="29" y="54" width="6" height="8" rx="2"/>
+
+    <rect x="54" y="29" width="8" height="6" rx="2"/>
+    <rect x="2" y="29" width="8" height="6" rx="2"/>
+
+    <rect x="47.5" y="8.5" width="6" height="8" rx="2"
+          transform="rotate(45 50.5 12.5)"/>
+
+    <rect x="10.5" y="45.5" width="6" height="8" rx="2"
+          transform="rotate(45 13.5 49.5)"/>
+
+    <rect x="8.5" y="10.5" width="8" height="6" rx="2"
+          transform="rotate(-45 12.5 13.5)"/>
+
+    <rect x="45.5" y="47.5" width="8" height="6" rx="2"
+          transform="rotate(-45 49.5 50.5)"/>
+
+    <!-- cuerpo -->
+    <circle cx="32" cy="32" r="22"/>
+  </g>
+
+  <!-- centro -->
+  <circle cx="32" cy="32" r="17" fill="#ffffff"/>
+
+  <!-- R -->
+  <path
+    fill="#1D4ED8"
+    d="
+      M24 18
+      H35
+      C41 18 45 22 45 28
+      C45 33 42 36 38 37
+      L45 46
+      H38
+      L32 38
+      H30
+      V46
+      H24
+      Z
+
+      M30 23
+      V33
+      H35
+      C38 33 40 31 40 28
+      C40 25 38 23 35 23
+      Z"/>
+</svg>
