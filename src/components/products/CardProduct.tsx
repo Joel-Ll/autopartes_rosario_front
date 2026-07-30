@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/dialog"
 import type { Product } from '@/types/products/products.type'
 import { Badge } from '@/components/ui/badge'
-import { getThumbnailUrl } from '@/utils';
 
 interface Props {
   product: Product | undefined,
