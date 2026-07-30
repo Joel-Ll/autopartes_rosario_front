@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { Navigate, createBrowserRouter } from 'react-router';
 
 import LoginView from './views/auth/LoginView';
 import AppLayout from './layouts/AppLayout';
@@ -46,6 +46,9 @@ const router = createBrowserRouter([
       // Home
       {
         index: true,
+        element: <Navigate to="/home" replace />,
+      },
+      {
         path: 'home',
         Component: DashboardView,
       },
